@@ -1,0 +1,38 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_URL") // uses connection pooling
+  directUrl = env("POSTGRES_DIRECT_URL") // uses a direct connection
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+model User {
+  username              String       @id
+  about                 String?
+  karma                 Int
+  created               DateTime
+  roastText             String?
+  strengthsText         String?
+  weaknessesText        String?
+  submissions           Submission[]
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  isCurrentlyProcessing Boolean      @default(false)
+
+  @@map("users")
+}
+
+model Submission {
+  id     Int     @id @default(autoincrement())
+  type   String
+  title  String?
+  score  Int?
+  text   String?
+  user   User    @relation(fields: [userId], references: [username])
+  userId String
+
+  @@map("submissions")
+}
