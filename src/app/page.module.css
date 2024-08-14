@@ -1,0 +1,81 @@
+.terminal {
+  padding: 20px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.screen {
+  background-color: #0a0a0a;
+  width: 90%;
+  height: 90vh;
+  font-size: 1.125em;
+  border: 1px solid #00ff00;
+  border-radius: 10px;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.content {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.content p {
+  color: #ffffff;
+  text-shadow: 0 0 1px #00ff00;
+  margin: 0;
+  padding: 5px 0;
+  line-height: 1.6;
+}
+
+.inputLine {
+  display: flex;
+  align-items: center;
+}
+
+.inputLine span {
+  color: #00ff00;
+  margin-right: 5px;
+}
+
+.input {
+  flex-grow: 1;
+  background-color: transparent;
+  border: none;
+  color: #00ff00;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+}
+
+.input:disabled {
+  opacity: 0.5;
+}
+
+.menu {
+  display: flex;
+  padding: 20px 0 0;
+  width: 90%;
+  margin: 0 auto;
+}
+
+.menuItem {
+  color: #00ff00;
+  text-decoration: none;
+  padding: 5px 15px;
+  margin: 0 20px 0 0;
+  border: 1px solid #00ff00;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 3px #00ff00;
+}
+
+.menuItem:hover {
+  background-color: #00ff00;
+  color: #0a0a0a;
+  box-shadow: 0 0 10px #00ff00;
+}

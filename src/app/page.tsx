@@ -1,81 +1,203 @@
 "use client";
-import { useRef } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useState, useEffect, useRef } from "react";
+import styles from "./page.module.css";
+import localforage from 'localforage';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useRouter } from 'next/navigation';
 
-import Leaderboard from "@/components/Leaderboard";
+interface AppState {
+  messages: string[];
+  input: string;
+  isWaiting: boolean;
+  animatingMessage: string;
+  chatId: string;
+  showWinDialog: boolean;
+  winStats: { numMessages: number; timeTaken: number };
+  username: string;
+}
 
-export default function Home() {
-  const usernameRef = useRef<HTMLInputElement>(null);
+function useChat() {
+  const [state, setState] = useState<AppState>({
+    messages: [],
+    input: "",
+    isWaiting: false,
+    animatingMessage: "",
+    chatId: "",
+    showWinDialog: false,
+    winStats: { numMessages: 0, timeTaken: 0 },
+    username: "",
+  });
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [state.messages]);
+
+  useEffect(() => {
+    const initializeStorage = async () => {
+      if (!(await localforage.getItem('userId'))) {
+        await localforage.setItem('userId', Math.random().toString(36).slice(2, 11));
+      }
+      setState(prev => ({ ...prev, chatId: Math.random().toString(36).slice(2, 11) }));
+    };
+    initializeStorage();
+
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  const animateMessage = (message: string) => {
+    const prefix = "stranger: ";
+    const content = message.slice(prefix.length);
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i <= content.length) {
+        setState(prev => ({ ...prev, animatingMessage: prefix + content.slice(0, i) }));
+        i++;
+      } else {
+        clearInterval(interval);
+        setState(prev => ({
+          ...prev,
+          messages: [...prev.messages, message],
+          animatingMessage: "",
+        }));
+      }
+    }, 50);
+  };
+
+  const sendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const username = usernameRef.current?.value.replace("@", "");
-    if (!username) {
-      return;
+    if (state.input.trim() === "" || state.isWaiting) return;
+
+    setState(prev => ({
+      ...prev,
+      messages: [...prev.messages, `You: ${prev.input}`],
+      input: "",
+      isWaiting: true,
+    }));
+
+    try {
+      const userId = await localforage.getItem('userId');
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: state.input, userId, chatId: state.chatId }),
+      });
+      const data = await response.json();
+      if (!data.message || !data.message.includes("stranger: ")) {
+        throw new Error("Invalid message");
+      }
+      animateMessage(data.message);
+      if (data.hasWon) {
+        setState(prev => ({
+          ...prev,
+          winStats: { numMessages: data.numMessages, timeTaken: data.timeTaken },
+          showWinDialog: true,
+        }));
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      setState(prev => ({
+        ...prev,
+        messages: [...prev.messages, "system: An error occurred. Please try again later."],
+      }));
+    } finally {
+      setState(prev => ({ ...prev, isWaiting: false }));
     }
-    router.push(`/u/${username}`);
+  };
+
+  const handleUsernameSubmit = async () => {
+    if (state.username.trim() === "") return;
+    const userId = await localforage.getItem('userId');
+    await fetch("/api/leaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: state.username, userId, chatId: state.chatId }),
+    });
+    router.push('/leaderboard');
+  };
+
+  return {
+    state,
+    setState,
+    messagesEndRef,
+    inputRef,
+    sendMessage,
+    handleUsernameSubmit,
+  };
+}
+
+export default function Home() {
+  const {
+    state,
+    setState,
+    messagesEndRef,
+    inputRef,
+    sendMessage,
+    handleUsernameSubmit,
+  } = useChat();
+
+  const handleTerminalClick = () => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
   };
 
   return (
-    <main className="min-h-screen bg-white text-gray-800">
-      {/* Hero Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="text-center">
-          <h1 className="text-5xl font-bold text-orange-600 mb-6">Roast my HackerNews</h1>
-          <p className="text-xl text-center mb-2 italic text-gray-600">Is your HN history as good as you think it is?</p>
-          <p className="text-xl text-center mb-12 italic text-gray-600">Submit your HN username for a reality check</p>
-          <form className="max-w-md mx-auto mb-12" onSubmit={handleSubmit}>
-            <div className="flex items-center border-b-2 border-orange-500 py-2">
-              <input ref={usernameRef} className="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Enter your Hackernews username" aria-label="Hackernews username" />
-              <button className="flex-shrink-0 bg-orange-500 hover:bg-orange-600 border-orange-500 hover:border-orange-600 text-sm border-4 text-white py-1 px-4 rounded" type="submit">
-                Roast Me
-              </button>
-            </div>
-          </form>
-          <h2 className="text-2xl font-semibold text-orange-600 mb-6">How it works</h2>
-          <div className="max-w-3xl w-3xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-            <div>
-              <h3 className="text-xl font-semibold mb-2 text-center">Step 1</h3>
-              <p className="text-center md:text-left">The AI will fetch your HN profile, recent posts, and comments</p>
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold mb-2 text-center">Step 2</h3>
-              <p className="text-center md:text-left">AI analyzes your description, karma, profile, and submissions</p>
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold mb-2 text-center">Step 3</h3>
-              <p className="text-center md:text-left">AI will prepare your roast and display it on a webpage</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Example Roasts Section */}
-      <section className="py-20 bg-orange-50">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-semibold text-center mb-4 text-orange-600">Don&apos;t want to be roasted just yet?</h2>
-          <p className="text-xl text-center mb-12">See some roasts below</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { username: "pg", about: "Bug fixer" },
-              { username: "patio11", about: "I work for the Internet" },
-              { username: "tptacek", about: "Helu! I'm Thomas" }
-            ].map((user, index) => (
-              <div key={index} className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-xl font-semibold mb-2 text-orange-600">{user.username}</h3>
-                <p className="text-gray-600 mb-4">{user.about}</p>
-                <Link href={`/u/${user.username}`} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded inline-block">
-                  View roast
-                </Link>
-              </div>
+    <>
+      <nav className={styles.menu}>
+        <a href="/about" className={styles.menuItem}>About</a>
+        <a href="/leaderboard" className={styles.menuItem}>Leaderboard</a>
+      </nav>
+      <main className={styles.terminal} onClick={handleTerminalClick}>
+        <div className={styles.screen}>
+          <div className={styles.content}>
+            <p>
+              <b>You awaken in a dark room.</b><br />
+              In front of you is an old computer terminal, with what seems like a chat window.<br />
+              Convince them to help you escape the room.<br />
+              <b>Hurry, before the time runs out</b>
+            </p>
+            {state.messages.map((msg, index) => (
+              <p key={index}>{msg}</p>
             ))}
+            {state.animatingMessage && <p>{state.animatingMessage}</p>}
+            <div ref={messagesEndRef} />
           </div>
+          <form onSubmit={sendMessage} className={styles.inputLine}>
+            <span>You: </span>
+            <input
+              type="text"
+              value={state.input}
+              onChange={(e) => setState(prev => ({ ...prev, input: e.target.value }))}
+              disabled={state.isWaiting}
+              className={styles.input}
+              ref={inputRef}
+            />
+          </form>
         </div>
-      </section>
-
-      <Leaderboard />
-    </main>
+      </main>
+      <Dialog open={state.showWinDialog} onOpenChange={(open) => setState(prev => ({ ...prev, showWinDialog: open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Congratulations! You&apos;ve won!</DialogTitle>
+            <DialogDescription>
+              You convinced the AI in {state.winStats.numMessages} messages and {Math.round(state.winStats.timeTaken / 1000)} seconds.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Enter your username for the leaderboard"
+            value={state.username}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setState(prev => ({ ...prev, username: e.target.value }))}
+          />
+          <DialogFooter>
+            <Button onClick={handleUsernameSubmit}>Submit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
