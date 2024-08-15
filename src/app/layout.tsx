@@ -9,17 +9,9 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Test",
-  description: "Are you game?",
-  // openGraph: {
-  //   images: [
-  //     "https://roastmyhn.nmn.gl/og-image.png"
-  //   ]
-  // },
-  // icons: {
-  //   icon: "/favicon.png"
-  // },
-  // metadataBase: new URL('https://roastmyhn.nmn.gl/')
+  title: "Reverse Turing Test",
+  description: "Please complete this challenge to prove you're not a robot.",
+  metadataBase: new URL('https://reverse-turing.nmn.gl/')
 };
 
 export default function RootLayout({

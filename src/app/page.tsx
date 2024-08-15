@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from 'next/navigation';
+import html2canvas from 'html2canvas';
 
 interface AppState {
   messages: string[];
@@ -16,9 +17,11 @@ interface AppState {
   showWinDialog: boolean;
   showLoseDialog: boolean;
   winStats: { numMessages: number; timeTaken: number };
+  highestScore: number;
   username: string;
   timeRemaining: number;
   timerStarted: boolean;
+  gameOver: boolean;
 }
 
 function useChat() {
@@ -31,9 +34,11 @@ function useChat() {
     showWinDialog: false,
     showLoseDialog: false,
     winStats: { numMessages: 0, timeTaken: 0 },
+    highestScore: 0,
     username: "",
     timeRemaining: 120,
     timerStarted: false,
+    gameOver: false,
   });
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -63,6 +68,7 @@ function useChat() {
         isWaiting: true,
         showLoseDialog: true,
         timerStarted: false,
+        gameOver: true,
       }));
     }
     return () => clearInterval(timer);
@@ -116,11 +122,13 @@ function useChat() {
         throw new Error("Invalid message");
       }
       animateMessage(data.message);
+      setState(prev => ({ ...prev, highestScore: data.highestScore }));
       if (data.hasWon) {
         setState(prev => ({
           ...prev,
           winStats: { numMessages: data.numMessages, timeTaken: data.timeTaken },
           showWinDialog: true,
+          gameOver: true,
         }));
       }
     } catch (error) {
@@ -154,6 +162,44 @@ function useChat() {
   };
 }
 
+function Sharers({ win, numMessages, timeTaken, highestScore }: { win: boolean, numMessages: number, timeTaken: number, highestScore: number }) {
+  const shareText = win
+    ? `I won the Reverse Turing Test in ${numMessages} messages and ${Math.round(timeTaken / 1000)} seconds with a score of ${highestScore}! Can you beat my score? https://reverse-turing.nmn.gl/`
+    : `I played the Reverse Turing Test and got a score of ${highestScore} in ${numMessages} messages. Can you do better? https://reverse-turing.nmn.gl/`;
+
+  const shareToTwitter = () => {
+    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+    window.open(url, '_blank');
+  };
+
+  const shareWithWebAPI = async () => {
+    try {
+      const canvas = await html2canvas(document.querySelector(`.${styles.terminal}`) as HTMLElement);
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve));
+      if (blob) {
+        const files = [new File([blob], 'chat.png', { type: blob.type })];
+        await navigator.share({
+          title: 'The Reverse Turing Test',
+          text: shareText,
+          files,
+        });
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  return (
+    // @ts-ignore
+    <>{navigator.share ? (
+        <Button onClick={shareWithWebAPI}>Share</Button>
+      ) : (
+        <Button onClick={shareToTwitter}>Share to X</Button>
+      )}
+    </>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const {
@@ -184,12 +230,6 @@ export default function Home() {
     return 'white';
   };
 
-  const shareToTwitter = () => {
-    const text = `I convinced the AI in ${state.winStats.numMessages} messages and ${Math.round(state.winStats.timeTaken / 1000)} seconds! Can you beat my score? https://reverse-turing.nmn.gl/ #TheTestGame`;
-    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-  };
-
   return (
     <>
       <nav className={styles.menu}>
@@ -206,17 +246,30 @@ export default function Home() {
               {state.animatingMessage && <p>{state.animatingMessage}</p>}
             </div>
           </div>
-          <form onSubmit={sendMessage} className={styles.inputLine}>
-            <span>You: </span>
-            <input
-              type="text"
-              value={state.input}
-              onChange={(e) => setState(prev => ({ ...prev, input: e.target.value }))}
-              disabled={state.isWaiting || state.timeRemaining === 0}
-              className={styles.input}
-              ref={inputRef}
-            />
-          </form>
+          {state.gameOver ? (
+            <div className={`${styles.inputLine} flex justify-between`}>
+              <div className="flex flex-col items-center mr-4">
+                <span className="uppercase text-sm">Score</span>
+                <span className="text-2xl">{state.highestScore}</span>
+              </div>
+              <div>
+                <Button variant="outline" className="ml-4" onClick={() => window.location.reload()}>Retry</Button>
+                <Sharers win={state.winStats.numMessages > 0} numMessages={state.messages.length} timeTaken={state.winStats.timeTaken} highestScore={state.highestScore} />
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={sendMessage} className={styles.inputLine}>
+              <span>You: </span>
+              <input
+                type="text"
+                value={state.input}
+                onChange={(e) => setState(prev => ({ ...prev, input: e.target.value }))}
+                disabled={state.isWaiting || state.timeRemaining === 0}
+                className={styles.input}
+                ref={inputRef}
+              />
+            </form>
+          )}
         </div>
         {state.timerStarted && (
           <div className={styles.timer} style={{ color: getTimerColor() }}>
@@ -230,10 +283,15 @@ export default function Home() {
             <DialogTitle>Congratulations! You&apos;ve won!</DialogTitle>
             <DialogDescription>
               You convinced the AI in {state.winStats.numMessages} messages and {Math.round(state.winStats.timeTaken / 1000)} seconds.
+              <br />
+              <span>Score</span>
+              <br />
+              <span className="text-2xl">{state.highestScore}</span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={shareToTwitter}>Share to X</Button>
+            <Sharers win={true} numMessages={state.winStats.numMessages} timeTaken={state.winStats.timeTaken} highestScore={state.highestScore} />
+            <Button variant="ghost" onClick={() => window.location.reload()}>Retry</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -243,11 +301,15 @@ export default function Home() {
             <DialogTitle>Game Over</DialogTitle>
             <DialogDescription>
               You ran out of time after sending {state.messages.length} messages.
+              <br /><br/>
+              <span className="uppercase">Score</span>
+              <br />
+              <span className="text-3xl">{state.highestScore}</span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            {/* <Button variant="outline" onClick={() => router.push('/leaderboard')}>View Leaderboard</Button> */}
-            <Button variant="outline" onClick={() => window.location.reload()}>Retry</Button>
+            <Sharers win={false} numMessages={state.messages.length} timeTaken={state.winStats.timeTaken} highestScore={state.highestScore} />
+            <Button variant="ghost" onClick={() => window.location.reload()}>Retry</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

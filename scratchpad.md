@@ -23,5 +23,10 @@
 * create leaderboard POST receiver, attach given username to given chatId and compute rank/score based on that.
 * create leaderboard page
   * display entries (exclude chatId to not get hacked lol)
+✅ show high score to user when they win or lose
+  ✅ send high score from backend to frontend
+  ✅ show in modals
+✅ allow "Share Chat" button in frontend to win or lose modal
+  ✅ initially, just initiate a share via webapi of the screenshot of the page with link
 
 

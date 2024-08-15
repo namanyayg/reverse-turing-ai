@@ -30,8 +30,8 @@
 .content p {
   letter-spacing: .5px;
   margin: 0;
-  padding: 5px 0;
-  line-height: 1.6;
+  padding: 10px 0;
+  line-height: 1.7;
   transform: translateZ(0);
 }
 
