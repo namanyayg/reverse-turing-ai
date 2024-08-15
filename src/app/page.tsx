@@ -35,13 +35,8 @@ function useChat() {
     timeRemaining: 120,
     timerStarted: false,
   });
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [state.messages]);
 
   useEffect(() => {
     const initializeStorage = async () => {
@@ -153,7 +148,6 @@ function useChat() {
   return {
     state,
     setState,
-    messagesEndRef,
     inputRef,
     sendMessage,
     handleUsernameSubmit,
@@ -165,7 +159,6 @@ export default function Home() {
   const {
     state,
     setState,
-    messagesEndRef,
     inputRef,
     sendMessage,
     handleUsernameSubmit,
@@ -198,13 +191,14 @@ export default function Home() {
         <a href="/leaderboard" className={styles.menuItem}>Leaderboard</a>
       </nav>
       <main className={styles.terminal} onClick={handleTerminalClick}>
-        <div className={`${styles.screen} ${styles.crt}`}>
+        <div className={`${styles.screen} ${styles.crt} text-sm md:text-lg`}>
           <div className={styles.content}>
-            {state.messages.map((msg, index) => (
-              <p key={index}>{msg}</p>
-            ))}
-            {state.animatingMessage && <p>{state.animatingMessage}</p>}
-            <div ref={messagesEndRef} />
+            <div className={styles.contentContainer}>
+              {state.messages.map((msg, index) => (
+                <p key={index}>{msg}</p>
+              ))}
+              {state.animatingMessage && <p>{state.animatingMessage}</p>}
+            </div>
           </div>
           <form onSubmit={sendMessage} className={styles.inputLine}>
             <span>You: </span>
@@ -282,7 +276,8 @@ export default function Home() {
               <p className="my-4"><b>You awaken, alone, in a dark empty room.</b></p>
               <p className="mb-4">The only thing you see is an old computer terminal, with what seems like a chat window.</p>
               <p className="mb-4"><b>Ask for help and escape, before time runs out.</b></p>
-              <p>Can you be believable enough?</p>
+              <p className="mb-4">They think that you are an AI.</p>
+              <p className="mb-4"><b>Can you convince them you are human?</b></p>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

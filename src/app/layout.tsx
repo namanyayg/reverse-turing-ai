@@ -31,7 +31,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={spaceMono.className}>
         {children}
-        {/* <GoogleAnalytics gaId="G-TK2ZPV82TV" /> */}
+        <GoogleAnalytics gaId="G-XBFVRCGCD7" />
       </body>
     </html>
   );

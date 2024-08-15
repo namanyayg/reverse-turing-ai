@@ -9,7 +9,7 @@
   ✅ show assistant response in chat
   ✅ determine win condition
   * upon assistant win message, trigger frontend win modal with shareable score: count of messages, time taken, and another button to try again
-* create database on neon to handle it
+✅ create database on neon to handle it
 * create schema.prisma with the correct tables
     user
     each user can have multiple "chats"

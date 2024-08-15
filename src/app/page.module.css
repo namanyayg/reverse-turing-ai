@@ -8,8 +8,7 @@
   background-color: #0a0a0a;
   color: #9f9;
   width: 90%;
-  height: 85vh;
-  font-size: 1.125em;
+  height: 75vh;
   border: 1px solid #3f3;
   border-top: none;
   padding: 20px;
@@ -24,6 +23,8 @@
   flex-grow: 1;
   overflow-y: auto;
   margin-bottom: 20px;
+  display: flex;
+  flex-direction: column-reverse;
 }
 
 .content p {
@@ -31,6 +32,7 @@
   margin: 0;
   padding: 5px 0;
   line-height: 1.6;
+  transform: translateZ(0);
 }
 
 .inputLine {
@@ -80,7 +82,7 @@
 .timer {
   font-size: 1.75rem;
   position: fixed;
-  top: 85vh;
+  top: 75vh;
   margin-top: 55px;
   padding: 3px 10px 3px 15px;
   line-height: 1;
