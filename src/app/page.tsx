@@ -194,7 +194,7 @@ export default function Home() {
     <>
       <nav className={styles.menu}>
         <a href="#" className={styles.menuItem} onClick={() => setAboutDialogOpen(true)}>About</a>
-        <a href="#" className={styles.menuItem}>Leaderboard (coming soon)</a>
+        <a href="#" className={styles.menuItem}>Leaderboard (soon)</a>
       </nav>
       <main className={styles.terminal} onClick={handleTerminalClick}>
         <div className={`${styles.screen} ${styles.crt} text-sm md:text-lg`}>
