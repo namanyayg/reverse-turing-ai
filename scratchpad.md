@@ -14,12 +14,12 @@
     user
     each user can have multiple "chats"
     each chat can have multiple "messages"
-* improve app UI
+✅ improve app UI
   ✅ make like cui
-  * make it like a crt screen
+  ✅ make it like a crt screen
   ✅ add intro/story text
-  * add "about" modal with credits to explain the concept
-* show "time remaining" UI
+  ✅ add "about" modal with credits to explain the concept
+✅ show "time remaining" UI
 * create leaderboard POST receiver, attach given username to given chatId and compute rank/score based on that.
 * create leaderboard page
   * display entries (exclude chatId to not get hacked lol)

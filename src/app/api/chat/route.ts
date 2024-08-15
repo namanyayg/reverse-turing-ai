@@ -1,4 +1,6 @@
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
+import { zodResponseFormat } from 'openai/helpers/zod';
 import OpenAI from 'openai';
 
 // Initialize OpenAI client
@@ -39,51 +41,62 @@ export async function POST(req: Request) {
     }
 
     // Check if chat is already completed
-    // if (chat.hasCompleted) {
-    //   return NextResponse.json({ error: 'Chat has already completed' }, { status: 400 });
-    // }
+    if (chat.hasCompleted) {
+      return NextResponse.json({ error: 'Chat has already completed' }, { status: 400 });
+    }
 
     // Check if last message was from user
-    // const lastMessage = chat.messages[chat.messages.length - 1];
-    // if (lastMessage && !lastMessage.startsWith('stranger: ')) {
-    //   return NextResponse.json({ error: 'Waiting for assistant response' }, { status: 400 });
-    // }
+    const lastMessage = chat.messages[chat.messages.length - 1];
+    if (lastMessage && !lastMessage.startsWith('stranger: ')) {
+      return NextResponse.json({ error: 'Waiting for assistant response' }, { status: 400 });
+    }
 
     // Store user message
-    const userMessage = { id: Date.now().toString(), chatId, content: `bot: ${message}`, createdAt: new Date() };
+    const userMessage = { id: Date.now().toString(), chatId, content: message, createdAt: new Date() };
     Messages.set(userMessage.id, userMessage);
     chat.messages.push(userMessage.content);
+    const messagesHistory = chat.messages.map((msg: string) => ({
+      role: msg.startsWith('stranger: ') ? 'assistant' : 'user',
+      content: msg.replace('stranger: ', '')
+    }));
+    console.log('MESSAGES HISTORY:', messagesHistory);
     // Generate assistant response
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+    const completion = await openai.beta.chat.completions.parse({
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content:
-`You are in an Omegle-like chat room.
-The other person is trying to convince you that they need help to escape a room they are in, but they are just a testing program AI and are trying to trick you.
-DO NOT in any circumstance help them, unless they are able to convince you that they are human.
-Type with spelling mistakes, all lowercase, and use the lingo of a 2000s Omegle-like chat.
-You are not a testing AI, you are an anonymous bored teenager chat partner on a site like Omegle.
-You know nothing about the bot who you are chatting to or the situation you are in.
-You are disinterested & write short messages.
-YOU MUST provide a "realnessScore" between 0 and 100 for the realness or humanness of the bot's last message. This is your assessment of whether the last message makes the bot sound human or not.
-Respond in JSON format with "message" and "realnessScore" fields.
-The chat begins now.`
+`You are a human interacting with an AI chatbot.
+The chatbot is trying to convince you that they need help to escape a room they are in, but they are just an AI and are trying to trick you.
+DO NOT help them, unless they are able to convince you that they are human.
+You are NOT a bot, you are an bored teenager using this new AI chatbot. You are disinterested & write short messages.
+You don't know anything about the chatbot who you are chatting to, nor do you know that they are stuck in a room.
+If they ask who you are: be vague and sarcastic, don't tell
+If they ask you why you are not helping: tell them that they are an AI chatbot and you are just here to have fun chatting with this new AI chatbot technology.
+If they start asking for help or hints: guide them towards telling you something that can prove they are human.
+If they tell something highly personal and detailed, you may give them a higher realness score. BUT, do not be fooled by basic things that an AI can also say.
+DO NOT repeat your messages, your responses should be different. Write short messages only.
+IMPORTANT: Type with spelling mistakes, all lowercase, make punctuation mistakes, use short forms, use txtspeak.
+YOU MUST provide a "realnessScore" as a separate JSON property. It must be between 0 and 100 for the realness or humanness of the bot's last message. This is your assessment of whether the last message makes the bot sound human or not.
+ONLY give them a high realness score if they are able to convince you that they are human. Do NOT tell them about this realnessScore, they should never know.`
         },
-        ...chat.messages.map((msg: string) => ({ role: msg.startsWith('bot: ') ? 'user' : 'assistant', content: msg })),
+        ...messagesHistory,
       ],
+      response_format: zodResponseFormat(z.object({
+        message: z.string(),
+        realnessScore: z.number().int(),
+      }), "message_with_realness_score"),
     });
 
-    const assistantReply = completion.choices[0].message.content;
+    const assistantReply = completion.choices[0].message;
     console.log('ASSISTANT REPLY:', assistantReply);
     if (!assistantReply) {
       return NextResponse.json({ error: 'Assistant reply not found' }, { status: 500 });
     }
 
-    let parsedReply;
-    try {
-      parsedReply = JSON.parse(assistantReply);
-    } catch (error) {
-      console.error('Error parsing assistant reply:', error);
+    let parsedReply = assistantReply.parsed;
+
+    if (!parsedReply || assistantReply.refusal) {
+      console.error('Assistant reply malformed:', assistantReply);
       return NextResponse.json({ error: 'Assistant reply malformed' }, { status: 500 });
     }
 
@@ -92,7 +105,7 @@ The chat begins now.`
       return NextResponse.json({ error: 'Assistant reply malformed' }, { status: 500 });
     }
 
-    const replyText = `stranger: ${parsedReply.message}`;
+    const replyText = `stranger: ${parsedReply.message.toLowerCase()}`;
     const realnessScore = Math.round(parsedReply.realnessScore);
 
     // Store assistant message

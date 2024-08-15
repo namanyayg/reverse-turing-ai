@@ -14,8 +14,11 @@ interface AppState {
   animatingMessage: string;
   chatId: string;
   showWinDialog: boolean;
+  showLoseDialog: boolean;
   winStats: { numMessages: number; timeTaken: number };
   username: string;
+  timeRemaining: number;
+  timerStarted: boolean;
 }
 
 function useChat() {
@@ -26,8 +29,11 @@ function useChat() {
     animatingMessage: "",
     chatId: "",
     showWinDialog: false,
+    showLoseDialog: false,
     winStats: { numMessages: 0, timeTaken: 0 },
     username: "",
+    timeRemaining: 120,
+    timerStarted: false,
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -50,6 +56,23 @@ function useChat() {
     inputRef.current?.select();
   }, []);
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (state.timerStarted && state.timeRemaining > 0) {
+      timer = setInterval(() => {
+        setState(prev => ({ ...prev, timeRemaining: prev.timeRemaining - 1 }));
+      }, 1000);
+    } else if (state.timeRemaining === 0) {
+      setState(prev => ({
+        ...prev,
+        isWaiting: true,
+        showLoseDialog: true,
+        timerStarted: false,
+      }));
+    }
+    return () => clearInterval(timer);
+  }, [state.timerStarted, state.timeRemaining]);
+
   const animateMessage = (message: string) => {
     const prefix = "stranger: ";
     const content = message.slice(prefix.length);
@@ -65,13 +88,19 @@ function useChat() {
           messages: [...prev.messages, message],
           animatingMessage: "",
         }));
+        inputRef.current?.focus();
+        inputRef.current?.select();
       }
-    }, 50);
+    }, 5);
   };
 
   const sendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (state.input.trim() === "" || state.isWaiting) return;
+    if (state.input.trim() === "" || state.isWaiting || state.timeRemaining === 0) return;
+
+    if (!state.timerStarted) {
+      setState(prev => ({ ...prev, timerStarted: true }));
+    }
 
     setState(prev => ({
       ...prev,
@@ -132,6 +161,7 @@ function useChat() {
 }
 
 export default function Home() {
+  const router = useRouter();
   const {
     state,
     setState,
@@ -141,26 +171,35 @@ export default function Home() {
     handleUsernameSubmit,
   } = useChat();
 
+  const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
+  const [introDialogOpen, setIntroDialogOpen] = useState(true);
+
   const handleTerminalClick = () => {
     inputRef.current?.focus();
     inputRef.current?.select();
   };
 
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const getTimerColor = () => {
+    if (state.timeRemaining <= 30) return 'red';
+    if (state.timeRemaining <= 60) return 'yellow';
+    return 'white';
+  };
+
   return (
     <>
       <nav className={styles.menu}>
-        <a href="/about" className={styles.menuItem}>About</a>
+        <a href="#" className={styles.menuItem} onClick={() => setAboutDialogOpen(true)}>About</a>
         <a href="/leaderboard" className={styles.menuItem}>Leaderboard</a>
       </nav>
       <main className={styles.terminal} onClick={handleTerminalClick}>
-        <div className={styles.screen}>
+        <div className={`${styles.screen} ${styles.crt}`}>
           <div className={styles.content}>
-            <p>
-              <b>You awaken in a dark room.</b><br />
-              In front of you is an old computer terminal, with what seems like a chat window.<br />
-              Convince them to help you escape the room.<br />
-              <b>Hurry, before the time runs out</b>
-            </p>
             {state.messages.map((msg, index) => (
               <p key={index}>{msg}</p>
             ))}
@@ -173,12 +212,17 @@ export default function Home() {
               type="text"
               value={state.input}
               onChange={(e) => setState(prev => ({ ...prev, input: e.target.value }))}
-              disabled={state.isWaiting}
+              disabled={state.isWaiting || state.timeRemaining === 0}
               className={styles.input}
               ref={inputRef}
             />
           </form>
         </div>
+        {state.timerStarted && (
+          <div className={styles.timer} style={{ color: getTimerColor() }}>
+            <span>Time Left: </span>{formatTime(state.timeRemaining)}
+          </div>
+        )}
       </main>
       <Dialog open={state.showWinDialog} onOpenChange={(open) => setState(prev => ({ ...prev, showWinDialog: open }))}>
         <DialogContent>
@@ -195,6 +239,54 @@ export default function Home() {
           />
           <DialogFooter>
             <Button onClick={handleUsernameSubmit}>Submit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={state.showLoseDialog} onOpenChange={(open) => setState(prev => ({ ...prev, showLoseDialog: open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Game Over</DialogTitle>
+            <DialogDescription>
+              You ran out of time after sending {state.messages.length} messages.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => router.push('/leaderboard')}>View Leaderboard</Button>
+            <Button variant="outline" onClick={() => window.location.reload()}>Retry</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={aboutDialogOpen} onOpenChange={setAboutDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>About</DialogTitle>
+            <DialogDescription>
+              &ldquo;The Test&rdquo; is an interactive AI-based game to question what does it mean to be &ldquo;human&rdquo;.<br /><br />
+              As the clock runs out, what will you say to convince the AI of your humanity?<br /><br />
+              Made with love by <a className="text-green-500 hover:underline" target="_blank" rel="noopener noreferrer" href="https://x.com/NamanyayG">Namanyay</a>.<br /><br />I keep playing with AI & I would love to <a className="text-green-500 hover:underline" target="_blank" rel="noopener noreferrer"  href="https://x.com/NamanyayG">earn your follow on Twitter</a> if you liked this.<br /><br/>
+              <hr></hr><br/>
+              Inspired by Sam Hughes&apos; story <a className="text-green-500 hover:underline" target="_blank" rel="noopener noreferrer" href="https://qntm.org/difference">&ldquo;The Difference&rdquo;</a>.<br/><br/>
+              CRT CSS effects by <a className="text-green-500 hover:underline" target="_blank" rel="noopener noreferrer" href="http://aleclownes.com/2017/02/01/crt-display.html">Alec Lownes</a>.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setAboutDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={introDialogOpen} onOpenChange={setIntroDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>The Test</DialogTitle>
+            <DialogDescription>
+              <p className="my-4"><b>You awaken, alone, in a dark empty room.</b></p>
+              <p className="mb-4">The only thing you see is an old computer terminal, with what seems like a chat window.</p>
+              <p className="mb-4"><b>Ask for help and escape, before time runs out.</b></p>
+              <p>Can you be believable enough?</p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setIntroDialogOpen(false)}>Start</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
