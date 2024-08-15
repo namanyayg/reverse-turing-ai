@@ -184,11 +184,17 @@ export default function Home() {
     return 'white';
   };
 
+  const shareToTwitter = () => {
+    const text = `I convinced the AI in ${state.winStats.numMessages} messages and ${Math.round(state.winStats.timeTaken / 1000)} seconds! Can you beat my score? https://reverse-turing.nmn.gl/ #TheTestGame`;
+    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <>
       <nav className={styles.menu}>
         <a href="#" className={styles.menuItem} onClick={() => setAboutDialogOpen(true)}>About</a>
-        <a href="/leaderboard" className={styles.menuItem}>Leaderboard</a>
+        <a href="#" className={styles.menuItem}>Leaderboard (coming soon)</a>
       </nav>
       <main className={styles.terminal} onClick={handleTerminalClick}>
         <div className={`${styles.screen} ${styles.crt} text-sm md:text-lg`}>
@@ -226,13 +232,8 @@ export default function Home() {
               You convinced the AI in {state.winStats.numMessages} messages and {Math.round(state.winStats.timeTaken / 1000)} seconds.
             </DialogDescription>
           </DialogHeader>
-          <Input
-            placeholder="Enter your username for the leaderboard"
-            value={state.username}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setState(prev => ({ ...prev, username: e.target.value }))}
-          />
           <DialogFooter>
-            <Button onClick={handleUsernameSubmit}>Submit</Button>
+            <Button onClick={shareToTwitter}>Share to X</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -245,7 +246,7 @@ export default function Home() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => router.push('/leaderboard')}>View Leaderboard</Button>
+            {/* <Button variant="outline" onClick={() => router.push('/leaderboard')}>View Leaderboard</Button> */}
             <Button variant="outline" onClick={() => window.location.reload()}>Retry</Button>
           </DialogFooter>
         </DialogContent>
