@@ -11,6 +11,8 @@ const Users = new Map();
 const Chats = new Map();
 const Messages = new Map();
 
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
   try {
     const { message, chatId, userId } = await req.json();
