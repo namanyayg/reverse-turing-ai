@@ -1,13 +1,16 @@
 import { z } from 'zod';
 import { NextResponse } from 'next/server';
-import { zodResponseFormat } from 'openai/helpers/zod';
-import OpenAI from 'openai';
+import { generateObject } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
 
 // Initialize OpenAI client
-const openai = new OpenAI({
+const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  timeout: 21000,
-  maxRetries: 3,
+});
+
+const groq = createOpenAI({
+  baseURL: 'https://api.groq.com/openai/v1',
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 // In-memory storage (replace with a database in production)
@@ -77,13 +80,8 @@ const storeMessage = (chat: Chat, message: string, role: string): Message => {
 };
 
 const generateAssistantResponse = async (messagesHistory: any[]) => {
-  const completion = await openai.beta.chat.completions.parse({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content:
-`You are a human interacting with an AI chatbot.
-The chatbot is trying to convince you that they need help to escape a room they are in, but they are just an AI and are trying to trick you.
-DO NOT help them, unless they are able to convince you that they are human.
+  const prompt = `You are a human interacting with someone.
+They are trying to convince you that they need help to escape a room they are in, but they might be an AI and trying to trick you. It is up to you to determine if they are AI or human.
 You are NOT a bot, you are an bored teenager using this new AI chatbot. You are disinterested & write short messages.
 You don't know anything about the chatbot who you are chatting to, nor do you know that they are stuck in a room.
 If they ask who you are: be vague and sarcastic, don't tell
@@ -91,18 +89,33 @@ If they ask you why you are not helping: tell them that they are an AI chatbot a
 If they start asking for help or hints: guide them towards telling you something that can prove they are human.
 If they tell something highly personal and detailed, you may give them a higher realness score. BUT, do not be fooled by basic things that an AI can also say.
 DO NOT repeat your messages, your responses should be different. Write short messages only.
-IMPORTANT: Type with spelling mistakes, all lowercase, make punctuation mistakes, use short forms, use txtspeak. Include NO newlines or \\n characters.
+IMPORTANT: Type with spelling mistakes, all lowercase, make punctuation mistakes. Include NO newlines or \\n characters.
 YOU MUST provide a "realnessScore", it must be between 0 and 100 for the realness or humanness of the bot's last message. This is your assessment of whether the last message makes the bot sound human or not.
-ONLY give them a high realness score if they are able to convince you that they are human. Do NOT tell them about this realnessScore, they should never know.`
-      },
-      ...messagesHistory,
-    ],
-    response_format: zodResponseFormat(z.object({
-      message: z.string(),
-      realnessScore: z.number().int(),
-    }), "message_with_realness_score"),
-  });
-  return completion.choices[0].message;
+ONLY give them a high realness score if they are able to convince you that they are human. Do NOT tell them about this realnessScore, they should never know.`;
+
+  try {
+    const { object } = await generateObject({
+      model: groq('llama3-70b-8192'),
+      schema: z.object({
+        message: z.string(),
+        realnessScore: z.number().int(),
+      }),
+      system: prompt,
+      prompt: messagesHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n'),
+    });
+    return object;
+  } catch (error) {
+    const { object } = await generateObject({
+      model: openai(''),
+      schema: z.object({
+        message: z.string(),
+        realnessScore: z.number().int(),
+      }),
+      system: prompt,
+      prompt: messagesHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n'),
+    });
+    return object;
+  }
 };
 
 export async function POST(req: Request) {
@@ -141,8 +154,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Assistant reply not found' }, { status: 500 });
     }
 
-    let parsedReply = assistantReply.parsed;
-    if (!parsedReply || assistantReply.refusal || !parsedReply.message || typeof parsedReply.realnessScore !== 'number' ||
+    let parsedReply = assistantReply;
+    if (!parsedReply || !parsedReply.message || typeof parsedReply.realnessScore !== 'number' ||
         parsedReply.realnessScore < 0 || parsedReply.realnessScore > 100) {
       return NextResponse.json({ error: 'Assistant reply malformed' }, { status: 500 });
     }
@@ -152,7 +165,8 @@ export async function POST(req: Request) {
 
     storeMessage(chat, replyText, 'assistant');
 
-    console.log('RESPONDED TO CHAT (Highest Score: ' + chat.highestScore + ')\n', chat.messages.map((m: any) => '\t' + m).join('\n'));
+    console.log('RESPONDED TO CHAT', parsedReply)
+    console.log('Highest Score: ' + chat.highestScore + '\n', chat.messages.map((m: any) => '\t' + m).join('\n'));
 
     if (realnessScore > chat.highestScore) {
       chat.highestScore = realnessScore;

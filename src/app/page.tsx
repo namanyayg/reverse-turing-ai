@@ -282,11 +282,12 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle>Congratulations! You&apos;ve won!</DialogTitle>
             <DialogDescription>
-              You convinced the AI in {state.winStats.numMessages} messages and {Math.round(state.winStats.timeTaken / 1000)} seconds.
-              <br />
+              You convinced the AI in {state.winStats.numMessages / 2} messages and {Math.round(state.winStats.timeTaken / 1000)} seconds.
+              <div className="flex flex-col items-center my-4">
               <span>Score</span>
               <br />
               <span className="text-2xl">{state.highestScore}</span>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -300,11 +301,12 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle>Game Over</DialogTitle>
             <DialogDescription>
-              You ran out of time after sending {state.messages.length} messages.
-              <br /><br/>
-              <span className="uppercase">Score</span>
-              <br />
-              <span className="text-3xl">{state.highestScore}</span>
+              You ran out of time after sending {state.messages.length / 2} messages.
+              <div className="flex flex-col items-center my-4">
+                <span className="uppercase">Score</span>
+                <br />
+                <span className="text-3xl">{state.highestScore}</span>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
